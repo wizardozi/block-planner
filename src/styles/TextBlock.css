@@ -1,0 +1,59 @@
+/* --- Base Container --- */
+.text-block-container {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+/* --- Main Text Area --- */
+/* Base text block */
+.text-block {
+  position: relative;
+  padding-left: 1px;
+  outline: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 1.5em;
+  /* caret-color: black; */
+  font-size: 1em;
+  font-weight: normal;
+}
+
+/* Heading variants */
+.text-block.h1 {
+  font-size: 2em;
+  font-weight: bold;
+}
+.text-block.h2 {
+  font-size: 1.5em;
+  font-weight: bold;
+}
+.text-block.h3 {
+  font-size: 1.2em;
+  font-weight: bold;
+}
+
+.md-symbol {
+  color: #aaa;
+  margin-right: 4px;
+  font-weight: bold;
+  display: inline-block;
+  min-width: 1ch;
+}
+
+.text-block.hide-symbols .md-symbol {
+  visibility: hidden;
+  width: 0;
+}
+/* Symbol-hiding logic: hide symbol when not focused */
+.text-block.hide-symbols span.symbol {
+  visibility: hidden;
+  width: 0;
+  display: inline-block;
+}
+
+/* Normal paragraph */
+.text-block.p {
+  font-size: 1em;
+}

@@ -1,0 +1,7 @@
+.heading1-block:not(.editing)::first-line {
+  visibility: hidden;
+}
+
+.heading1-block.editing::first-line {
+  visibility: visible;
+}

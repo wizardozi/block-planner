@@ -1,0 +1,29 @@
+.sidebar-resizer {
+  width: 6px;
+  cursor: col-resize;
+  background-color: rgb(163, 163, 163);
+  /* background-color: transparent; */
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+}
+
+.resizer-border {
+  width: 1px;
+  height: 100%;
+  background-color: black;
+  transition: width 0.2s ease, background-color 0.2s ease;
+  display: block;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+}
+
+.resizer-border:hover {
+  width: 6px;
+  background-color: gray;
+}
