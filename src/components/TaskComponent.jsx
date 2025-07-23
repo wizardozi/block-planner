@@ -1,68 +1,59 @@
 // components/TaskComponent.jsx
 import React, { useState, useRef, useEffect } from 'react';
+import { useDebouncedCallback } from 'use-debounce';
+
+import BlockEditor from './BlockEditor';
 import { TaskSchema } from '../data/TaskSchema';
 import { useTaskManager } from '../context/TaskContext';
-import BlockEditor from './BlockEditor';
-import { useDebouncedCallback } from 'use-debounce';
+import { loadDoc } from '../utils/editorStore';
 
 export const TaskComponent = ({ taskData }) => {
   const { updateTask } = useTaskManager();
-  const getDefaultBlock = () => ({
-    id: crypto.randomUUID(),
-    type: 'paragraph',
-    props: {},
-    content: [
-      {
-        type: 'text',
-        text: '',
-        styles: {},
-      },
-    ],
-    children: [],
-  });
-  const [task, setTask] = useState(() => {
-    if (!taskData) return null;
-
-    return {
-      ...taskData,
-      fields: taskData.fields || {},
-      blocks: taskData.blocks?.length ? taskData.blocks : [getDefaultBlock()],
-    };
-  });
-
-  const handleChange = (key, value) => {
-    setTask((prev) => ({
-      ...prev,
-      fields: {
-        ...prev.fields,
-        [key]: value,
-      },
-    }));
-  };
-
   const textareaRef = useRef(null);
 
+  /* ──────────────────────────
+     1  state: only id + fields
+     ────────────────────────── */
+  const [task, setTask] = useState(() => ({
+    id: taskData.id,
+    fields: taskData.fields ?? {},
+  }));
+
+  /* auto-grow task-name textarea */
   useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
-    }
+    if (!textareaRef.current) return;
+    textareaRef.current.style.height = 'auto';
+    textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
   }, [task.fields.name]);
 
-  const debouncedUpdate = useDebouncedCallback((updatedTask) => {
-    updateTask(updatedTask);
+  /* ──────────────────────────
+     2  per-field change helpers
+     ────────────────────────── */
+  const handleChange = (key, value) =>
+    setTask((prev) => ({
+      ...prev,
+      fields: { ...prev.fields, [key]: value },
+    }));
+
+  /* ──────────────────────────
+     3  debounce + persist
+     ────────────────────────── */
+  const debouncedSave = useDebouncedCallback(() => {
+    const latestBlocks = loadDoc('task', task.id); // plain JSON array
+    updateTask({
+      id: task.id,
+      fields: task.fields,
+      blocks: latestBlocks, // if your API expects it
+    });
   }, 300);
 
   useEffect(() => {
-    if (!task?.id) return;
+    debouncedSave();
+  }, [task, debouncedSave]);
 
-    debouncedUpdate({
-      id: task.id,
-      fields: task.fields,
-      blocks: task.blocks,
-    });
-  }, [task, debouncedUpdate]);
-
+  /* ──────────────────────────
+     4  UI
+     ────────────────────────── */
   return (
     <div className="">
       {/* Task Header */}
@@ -172,12 +163,7 @@ export const TaskComponent = ({ taskData }) => {
       </div>
 
       <div className=" flex-grow">
-        <BlockEditor
-          blocks={task.blocks}
-          onChange={(newBlocks) =>
-            setTask((prev) => ({ ...prev, blocks: newBlocks }))
-          }
-        />
+        <BlockEditor context="task" docId={task.id} />
       </div>
     </div>
   );

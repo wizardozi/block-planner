@@ -147,8 +147,6 @@ export const LogBlock = ({
           ))}
         </tbody>
       </table>
-      {/* <button onClick={handleAddRow}>Add Row</button>
-      <button onClick={handleAddColumn}>Add Column</button> */}
     </div>
   );
 };

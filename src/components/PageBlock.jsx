@@ -6,20 +6,6 @@ import { useDebouncedCallback } from 'use-debounce';
 export const PageBlock = ({ pageData }) => {
   const { updatePage, getPageById, addPage } = usePageManager();
 
-  const getDefaultBlock = () => ({
-    id: crypto.randomUUID(),
-    type: 'paragraph',
-    props: {},
-    content: [
-      {
-        type: 'text',
-        text: '',
-        styles: {},
-      },
-    ],
-    children: [],
-  });
-
   const [page, setPage] = useState(() => {
     if (!pageData) return null;
     return {
@@ -61,12 +47,7 @@ export const PageBlock = ({ pageData }) => {
       />
 
       <div className="flex-grow">
-        <BlockEditor
-          blocks={page.blocks}
-          onChange={(newBlocks) =>
-            setPage((prev) => ({ ...prev, blocks: newBlocks }))
-          }
-        />
+        <BlockEditor context="page" docId={page.id} />
       </div>
     </div>
   );

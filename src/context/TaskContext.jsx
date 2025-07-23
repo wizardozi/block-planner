@@ -10,14 +10,6 @@ export const TaskProvider = ({ children }) => {
     setTasks(TaskManager.loadTasks());
   }, []);
 
-  // const updateTask = (updatedTask) => {
-  //   const newTasks = tasks.map((t) =>
-  //     t.id === updatedTask.id ? updatedTask : t
-  //   );
-  //   setTasks(newTasks);
-  //   TaskManager.saveTasks(newTasks);
-  // };
-
   const updateTask = ({ id, fields = {}, blocks, parentId }) => {
     const newTasks = tasks.map((t) => {
       if (t.id !== id) return t;

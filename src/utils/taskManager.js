@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'blockPlannerTasks';
+const STORAGE_KEY = 'tasks';
 
 export const TaskManager = {
   loadTasks: () => {
