@@ -3,48 +3,72 @@ import { createDB } from '../models/db';
 import { defaultFields } from '../data/defaultFields';
 
 export const useStore = create((set, get) => ({
-  dbsById: {}, // dbId -> db
-  nodesById: {}, // task | page | project
+  /* data maps */
+  dbsById: {},
+  nodesById: {},
 
-  /* ---------- bootstrap ---------- */
-  addProject: (title) => {
+  /* ---------- PROJECT ---------- */
+  addProject: () => {
     const projId = crypto.randomUUID();
+
+    /* 1. create DB + seed default fields */
     const db = createDB('db-' + projId);
     db.fields = [...defaultFields];
+
+    /* 2. commit DB + project node */
     set((s) => ({
-      dbsById: { ...s.dbsById, [db.id]: db },
+      dbsById: {
+        ...s.dbsById,
+        [db.id]: db,
+      },
       nodesById: {
         ...s.nodesById,
         [projId]: {
           id: projId,
           type: 'project',
-          title,
-          database: db.id,
+          title: '',
           parentId: null,
+          database: db.id, // ★ critical link
         },
       },
     }));
+
     return projId;
   },
 
-  /* ---------- node helpers ---------- */
+  /* ---------- TASK / PAGE ---------- */
   addTask: (parentId) => {
-    const parent = get().nodesById[parentId];
-    const db = get().dbsById[parent.database];
+    const dbId = get().nodesById[parentId]?.database;
+    if (!dbId) throw new Error('Parent has no database');
+
+    const db = get().dbsById[dbId];
     const taskId = crypto.randomUUID();
-    const newTask = {
-      id: taskId,
-      type: 'task',
-      parentId,
-      cells: Object.fromEntries(db.fields.map((f) => [f.key, ''])),
-    };
+
+    /* seed every field */
+    const cells = Object.fromEntries(
+      db.fields.map((f) => [f.key, f.type === 'number' ? 0 : ''])
+    );
+
     set((s) => ({
-      nodesById: { ...s.nodesById, [taskId]: newTask },
+      nodesById: {
+        ...s.nodesById,
+        [taskId]: {
+          id: taskId,
+          type: 'task',
+          parentId,
+          cells,
+        },
+      },
     }));
+
+    return taskId;
   },
 
   updateNode: (id, patch) =>
     set((s) => ({
-      nodesById: { ...s.nodesById, [id]: { ...s.nodesById[id], ...patch } },
+      nodesById: {
+        ...s.nodesById,
+        [id]: { ...s.nodesById[id], ...patch },
+      },
     })),
 }));

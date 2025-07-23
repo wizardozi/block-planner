@@ -3,9 +3,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 
 import BlockEditor from './BlockEditor';
-import { TaskSchema } from '../data/TaskSchema';
+import TaskProperties from './TaskProperties';
 import { useTaskManager } from '../context/TaskContext';
 import { loadDoc } from '../utils/editorStore';
+import { DBProvider } from '../context/DBProvider';
+import { useNode } from '../hooks/useNode';
 
 export const TaskComponent = ({ taskData }) => {
   const { updateTask } = useTaskManager();
@@ -18,6 +20,8 @@ export const TaskComponent = ({ taskData }) => {
     id: taskData.id,
     fields: taskData.fields ?? {},
   }));
+
+  const { db } = useNode(task.id);
 
   /* auto-grow task-name textarea */
   useEffect(() => {
@@ -56,7 +60,7 @@ export const TaskComponent = ({ taskData }) => {
      ────────────────────────── */
   return (
     <div className="">
-      {/* Task Header */}
+      {/* Task Header & property inputs */}
       <div>
         <textarea
           ref={textareaRef}
@@ -66,100 +70,15 @@ export const TaskComponent = ({ taskData }) => {
           onChange={(e) => handleChange('name', e.target.value)}
           placeholder="New Task"
         />
-        {TaskSchema.map(({ key, type, options }) => (
-          <div key={key} className="mb-2 pl-13.5">
-            <label className="block font-medium capitalize">{key}</label>
-
-            {type === 'text' && (
-              <input
-                type="text"
-                className="border p-1 rounded outline-none"
-                value={task.fields[key] || ''}
-                onChange={(e) => handleChange(key, e.target.value)}
-              />
-            )}
-
-            {type === 'number' && (
-              <input
-                type="number"
-                className="border p-1 rounded outline-none"
-                value={task.fields[key] || ''}
-                onChange={(e) => handleChange(key, Number(e.target.value))}
-              />
-            )}
-
-            {type === 'select' && (
-              <select
-                className="border p-1 outline-none"
-                value={task.fields[key] || ''}
-                onChange={(e) => handleChange(key, e.target.value)}
-              >
-                <option value="">Select</option>
-                {options?.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </select>
-            )}
-
-            {type === 'multi-select' && (
-              <div className="flex flex-wrap gap-2">
-                {options?.map((opt) => {
-                  const selected = task.fields[key]?.includes(opt);
-                  return (
-                    <label key={opt} className="flex items-center gap-1">
-                      <input
-                        type="checkbox"
-                        checked={selected}
-                        onChange={(e) => {
-                          const current = task.fields[key] || [];
-                          handleChange(
-                            key,
-                            e.target.checked
-                              ? [...current, opt]
-                              : current.filter((val) => val !== opt)
-                          );
-                        }}
-                      />
-                      {opt}
-                    </label>
-                  );
-                })}
-              </div>
-            )}
-
-            {type === 'datetime' && (
-              <>
-                <input
-                  type="datetime-local"
-                  className="border p-1 rounded outline-none"
-                  value={task.fields[key]?.start || ''}
-                  onChange={(e) =>
-                    handleChange(key, {
-                      ...task.fields[key],
-                      start: e.target.value,
-                    })
-                  }
-                />
-                {/* Optional end time input if range is allowed */}
-                {options?.allowRange && (
-                  <input
-                    type="datetime-local"
-                    className="border p-1 rounded outline-none mt-1"
-                    value={task.fields[key]?.end || ''}
-                    onChange={(e) =>
-                      handleChange(key, {
-                        ...task.fields[key],
-                        end: e.target.value,
-                      })
-                    }
-                  />
-                )}
-              </>
-            )}
+        {db ? (
+          <DBProvider db={db}>
+            <TaskProperties taskId={task.id} />
+          </DBProvider>
+        ) : (
+          <div className="pl-13.5 text-sm text-red-500">
+            No database found for this task.
           </div>
-        ))}
+        )}
       </div>
 
       <div className=" flex-grow">

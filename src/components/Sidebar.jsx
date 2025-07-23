@@ -11,11 +11,14 @@ import { buildTree } from '../utils/buildTree';
 import { DeparentDropZone } from './DeparentDropZone';
 import { useDragAndDrop } from '../context/DragAndDropProvider';
 import { getField } from '../utils/getField';
-
+import { useStore } from '../state/store';
 import { PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 
 export default function Sidebar() {
   const navigate = useNavigate();
+
+  const addProject = useStore((s) => s.addProject);
+
   const [width, setWidth] = useState(() => {
     const saved = localStorage.getItem('sidebarWidth');
     return saved ? parseInt(saved, 10) : 256;
@@ -55,7 +58,7 @@ export default function Sidebar() {
 
   const { addProfile, deleteProfile } = useProfileManager();
 
-  const { addProject, deleteProject } = useProjectManager();
+  const { /*addProject,*/ deleteProject } = useProjectManager();
 
   const { addPage, deletePage } = usePageManager();
 
@@ -209,15 +212,19 @@ export default function Sidebar() {
           <button
             className="m-1 group p-1 hover:bg-gray-100 rounded-md transition-colors "
             onClick={() => {
-              const newProject = {
-                id: crypto.randomUUID(),
-                name: '',
-                type: 'project',
-                parentId: null,
-              };
-              addProject(newProject);
-              navigate(`/project/${newProject.id}`);
+              const projId = addProject();
+              navigate(`/project/${projId}`);
             }}
+            // onClick={() => {
+            //   const newProject = {
+            //     id: crypto.randomUUID(),
+            //     name: '',
+            //     type: 'project',
+            //     parentId: null,
+            //   };
+            //   addProject(newProject);
+            //   navigate(`/project/${newProject.id}`);
+            // }}
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"

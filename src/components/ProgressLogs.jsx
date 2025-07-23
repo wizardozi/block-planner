@@ -1,6 +1,8 @@
-import React from 'react';
+import { useState } from 'react';
 
 export default function ProgressLogs({ tasks = [] }) {
+  const [columns, setColumns] = useState();
+
   return (
     <div>
       {tasks.map((task) => (

@@ -1,5 +1,4 @@
 // src/blocks/customBlocks.js
-import { MdInfo, MdOutlineTableChart } from 'react-icons/md';
 import React from 'react';
 /**
  * Each block entry:
@@ -20,10 +19,10 @@ export const CUSTOM_BLOCKS = [
     toolbar: true,
   },
   {
-    type: 'logBlock',
+    type: 'log',
     title: 'Log entry',
     group: 'Basic blocks',
-    icon: () => React.createElement(MdInfo),
+    icon: '📋',
     aliases: ['log', 'entry', 'journal'],
     toolbar: true,
   },
@@ -31,7 +30,7 @@ export const CUSTOM_BLOCKS = [
     type: 'promptLog',
     title: 'Prompt logger',
     group: 'Basic blocks',
-    icon: () => React.createElement(MdOutlineTableChart),
+    icon: '🗣️',
     aliases: ['prompt', 'prompts'],
     toolbar: false,
   },

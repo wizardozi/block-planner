@@ -5,6 +5,8 @@ import { TaskComponent } from '../components/TaskComponent';
 import { useNavigate } from 'react-router-dom';
 import ContentHeader from '../components/ContentHeader';
 import PortalWrapper from '../components/PortalWrapper';
+import { useNode } from '../hooks/useNode';
+import { DBProvider } from '../context/DBProvider';
 
 const TaskView = ({ taskId: propTaskId, mode = 'page', onClose }) => {
   const modalRef = useRef();
@@ -18,6 +20,7 @@ const TaskView = ({ taskId: propTaskId, mode = 'page', onClose }) => {
   const [viewMode, setViewMode] = useState(mode);
 
   const taskId = propTaskId || params.taskId;
+  const { db } = useNode(taskId);
 
   const { getTaskById, updateTask } = useTaskManager();
 
@@ -49,11 +52,13 @@ const TaskView = ({ taskId: propTaskId, mode = 'page', onClose }) => {
   if (!task) return <div className="p-4 text-gray-500">Task not found.</div>;
 
   const content = (
-    <TaskComponent
-      key={task.id}
-      taskData={task}
-      onUpdate={(newData) => updateTask(task.id, newData)}
-    />
+    <DBProvider db={db}>
+      <TaskComponent
+        key={task.id}
+        taskData={task}
+        onUpdate={(newData) => updateTask(task.id, newData)}
+      />
+    </DBProvider>
   );
 
   // 🔄 Decide layout based on mode
