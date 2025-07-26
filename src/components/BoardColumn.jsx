@@ -1,26 +1,37 @@
-import React, { useState } from 'react';
-import BoardCard from './BoardCard';
-import { useTaskManager } from '../context/TaskContext';
-import TaskView from '../views/TaskView';
+import { useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
 import { useDroppable } from '@dnd-kit/core';
-import { SortableBoardCard } from './sortableBoardCard';
+import { verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext } from '@dnd-kit/sortable';
+import { useStore } from '../state/store';
 
-export default function BoardColumn({ status, tasks }) {
+import { SortableBoardCard } from './SortableBoardCard';
+import TaskView from '../views/TaskView';
+
+export default function BoardColumn({ status }) {
   const { projectId } = useParams();
+  const addTask = useStore((s) => s.addTask);
+  const nodesById = useStore((s) => s.nodesById); // stable ref
 
-  const [selectedTaskId, setSelectedTaskId] = useState(null);
+  /* tasks in this column */
+  const tasks = useMemo(
+    () =>
+      Object.values(nodesById).filter(
+        (n) =>
+          n.type === 'task' &&
+          n.parentId === projectId &&
+          n.cells?.status === status
+      ),
+    [nodesById, projectId, status]
+  );
 
-  const { setTasks, updateTask, addTask, deleteTask, getTaskById } =
-    useTaskManager();
-
+  /* droppable — advertise column info to global handler */
   const { setNodeRef } = useDroppable({
     id: `board-column-${status}`,
+    data: { kind: 'board-column', status },
   });
+
+  const [selected, setSelected] = useState(null);
 
   return (
     <div
@@ -28,41 +39,22 @@ export default function BoardColumn({ status, tasks }) {
       className="min-w-70 bg-gray-50 dark:bg-neutral-700 rounded-xs relative"
     >
       <div className="ml-3 font-bold">{status}</div>
+
+      {/* quick-add button */}
       <button
         className="absolute right-3 top-1"
         onClick={() => {
-          const newTask = {
-            id: crypto.randomUUID(),
-            type: 'task',
-            fields: {
-              name: '',
-              status,
-              priority: 'Medium',
-            },
-            parentId: projectId,
-            blocks: [],
-          };
-          addTask(newTask);
+          const id = addTask(projectId);
+          useStore.getState().updateNode(id, (d) => (d.cells.status = status));
+          setSelected(id);
         }}
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth="1.5"
-          stroke="currentColor"
-          className="size-5"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M12 4.5v15m7.5-7.5h-15"
-          />
-        </svg>
+        +
       </button>
+
       <SortableContext
         id={`board-column-${status}`}
-        items={tasks.map((task) => `board-task-${task.id}`)}
+        items={tasks.map((t) => `board-task-${t.id}`)}
         strategy={verticalListSortingStrategy}
       >
         <div className="pt-2">
@@ -71,18 +63,20 @@ export default function BoardColumn({ status, tasks }) {
               key={task.id}
               id={`board-task-${task.id}`}
               task={task}
-              onClick={() => setSelectedTaskId(task.id)}
+              columnId={status}
+              onClick={() => setSelected(task.id)}
             />
           ))}
-          {selectedTaskId && (
-            <TaskView
-              taskId={selectedTaskId}
-              mode="drawer"
-              onClose={() => setSelectedTaskId(null)}
-            />
-          )}
         </div>
       </SortableContext>
+
+      {selected && (
+        <TaskView
+          taskId={selected}
+          mode="drawer"
+          onClose={() => setSelected(null)}
+        />
+      )}
     </div>
   );
 }

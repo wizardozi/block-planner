@@ -1,91 +1,73 @@
-// components/TaskComponent.jsx
-import React, { useState, useRef, useEffect } from 'react';
-import { useDebouncedCallback } from 'use-debounce';
-
-import BlockEditor from './BlockEditor';
-import TaskProperties from './TaskProperties';
-import { useTaskManager } from '../context/TaskContext';
-import { loadDoc } from '../utils/editorStore';
-import { DBProvider } from '../context/DBProvider';
+import { useEffect, useRef } from 'react';
+import { useStore } from '../state/store';
 import { useNode } from '../hooks/useNode';
 
-export const TaskComponent = ({ taskData }) => {
-  const { updateTask } = useTaskManager();
-  const textareaRef = useRef(null);
+import TaskProperties from './TaskProperties';
+import BlockEditor from './BlockEditor';
+import { DBProvider } from '../context/DBProvider';
 
-  /* ──────────────────────────
-     1  state: only id + fields
-     ────────────────────────── */
-  const [task, setTask] = useState(() => ({
-    id: taskData.id,
-    fields: taskData.fields ?? {},
-  }));
+export default function TaskComponent({ taskId }) {
+  /* ------------------------------------------------------------- */
+  /* 1 Pull live task + update helper from zustand                  */
+  /* ------------------------------------------------------------- */
+  const task = useStore((s) => s.nodesById[taskId]);
+  const updateNode = useStore((s) => s.updateNode);
 
-  const { db } = useNode(task.id);
+  /* graceful fallback */
+  if (!task) return <div className="text-red-500">Task not found.</div>;
 
-  /* auto-grow task-name textarea */
+  /* ------------------------------------------------------------- */
+  /* 2 Get the project-level database (if any)                      */
+  /* ------------------------------------------------------------- */
+  const { db } = useNode(taskId); // hook climbs parentId chain
+
+  /* ------------------------------------------------------------- */
+  /* 3 auto-grow the title textarea                                */
+  /* ------------------------------------------------------------- */
+  const titleRef = useRef(null);
   useEffect(() => {
-    if (!textareaRef.current) return;
-    textareaRef.current.style.height = 'auto';
-    textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
-  }, [task.fields.name]);
+    if (!titleRef.current) return;
+    titleRef.current.style.height = 'auto';
+    titleRef.current.style.height = `${titleRef.current.scrollHeight}px`;
+  }, [task.cells?.name]);
 
-  /* ──────────────────────────
-     2  per-field change helpers
-     ────────────────────────── */
-  const handleChange = (key, value) =>
-    setTask((prev) => ({
-      ...prev,
-      fields: { ...prev.fields, [key]: value },
-    }));
-
-  /* ──────────────────────────
-     3  debounce + persist
-     ────────────────────────── */
-  const debouncedSave = useDebouncedCallback(() => {
-    const latestBlocks = loadDoc('task', task.id); // plain JSON array
-    updateTask({
-      id: task.id,
-      fields: task.fields,
-      blocks: latestBlocks, // if your API expects it
+  /* shorthand to mutate one cell */
+  const patchCell = (key, value) =>
+    updateNode(task.id, {
+      cells: { ...task.cells, [key]: value },
     });
-  }, 300);
 
-  useEffect(() => {
-    debouncedSave();
-  }, [task, debouncedSave]);
+  /* ------------------------------------------------------------- */
+  /* 4 Render                                                       */
+  /* ------------------------------------------------------------- */
+  const core = (
+    <>
+      {/* task title */}
+      <textarea
+        ref={titleRef}
+        className="text-5xl font-bold outline-none w-full resize-none overflow-hidden leading-tight pl-13.5"
+        value={task.cells?.name || ''}
+        onChange={(e) => patchCell('name', e.target.value)}
+        placeholder="New Task"
+        onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
+      />
 
-  /* ──────────────────────────
-     4  UI
-     ────────────────────────── */
-  return (
-    <div className="">
-      {/* Task Header & property inputs */}
-      <div>
-        <textarea
-          ref={textareaRef}
-          className="text-5xl font-bold outline-none w-full resize-none overflow-hidden leading-tight pl-13.5"
-          style={{ height: '80px' }}
-          value={task.fields.name || ''}
-          onChange={(e) => handleChange('name', e.target.value)}
-          placeholder="New Task"
-        />
-        {db ? (
-          <DBProvider db={db}>
-            <TaskProperties taskId={task.id} />
-          </DBProvider>
-        ) : (
-          <div className="pl-13.5 text-sm text-red-500">
-            No database found for this task.
-          </div>
-        )}
-      </div>
+      {/* dynamic property panel */}
+      {db ? (
+        <TaskProperties taskId={task.id} />
+      ) : (
+        <div className="pl-13.5 text-sm text-red-500">
+          No database found for this task.
+        </div>
+      )}
 
-      <div className=" flex-grow">
+      {/* rich-text editor */}
+      <div className="flex-grow">
         <BlockEditor context="task" docId={task.id} />
       </div>
-    </div>
+    </>
   );
-};
 
-export default TaskComponent;
+  /* wrap in DBProvider only when a db exists */
+  return db ? <DBProvider db={db}>{core}</DBProvider> : core;
+}

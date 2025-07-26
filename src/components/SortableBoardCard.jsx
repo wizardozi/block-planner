@@ -1,9 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import BoardCard from './BoardCard';
 
-export function SortableBoardCard({ id, task, onClick }) {
+export function SortableBoardCard({ id, task, columnId, onClick }) {
   const {
     attributes,
     listeners,
@@ -11,33 +11,17 @@ export function SortableBoardCard({ id, task, onClick }) {
     transform,
     transition,
     isDragging,
-    active,
-    over,
   } = useSortable({
-    id,
-    activationConstraint: {
-      delay: 400,
-      tolerance: 8,
-    },
+    id: `board-task-${task.id}`,
+    data: { nodeId: task.id, type: 'task', columnId }, // ← unified key
+    activationConstraint: { delay: 400, tolerance: 8 },
   });
 
-  const wasDraggingRef = useRef(false);
-
-  const mouseDownTimeRef = useRef(null);
-
-  const handleMouseDown = () => {
-    mouseDownTimeRef.current = Date.now();
-  };
-
-  const handleMouseUp = (e) => {
-    const elapsed = Date.now() - (mouseDownTimeRef.current || 0);
-
-    // Consider it a drag if the mouse was held longer than 200ms
-    if (elapsed > 200) {
-      return;
-    }
-
-    if (e.button === 0) {
+  /* distinguish click vs drag */
+  const mouseDownAt = useRef(null);
+  const onMouseDown = () => (mouseDownAt.current = Date.now());
+  const onMouseUp = (e) => {
+    if (Date.now() - (mouseDownAt.current || 0) < 200 && e.button === 0) {
       onClick?.();
     }
   };
@@ -54,8 +38,8 @@ export function SortableBoardCard({ id, task, onClick }) {
       style={style}
       {...attributes}
       {...listeners}
-      onMouseDown={handleMouseDown}
-      onMouseUp={handleMouseUp}
+      onMouseDown={onMouseDown}
+      onMouseUp={onMouseUp}
     >
       <BoardCard task={task} />
     </div>

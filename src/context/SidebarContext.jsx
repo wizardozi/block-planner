@@ -2,7 +2,7 @@
 import { createContext, useContext, useMemo } from 'react';
 import { useProfileManager } from './ProfileContext';
 import { useProjectManager } from './ProjectContext';
-import { useTaskManager } from './TaskContext';
+// import { useTaskManager } from './TaskContext';
 import { usePageManager } from './PageContext';
 
 const SidebarContext = createContext();

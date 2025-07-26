@@ -48,5 +48,3 @@ export const TaskProvider = ({ children }) => {
     </TaskContext.Provider>
   );
 };
-
-export const useTaskManager = () => useContext(TaskContext);

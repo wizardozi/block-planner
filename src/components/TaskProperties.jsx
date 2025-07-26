@@ -98,13 +98,39 @@ export default function TaskProperties({ taskId, showTitle = false }) {
               </div>
             )}
 
-            {type === 'date' && (
-              <input
-                type="datetime-local"
-                className="border p-1 rounded outline-none"
-                value={task.cells[key] || ''}
-                onChange={(e) => handleChange(key, e.target.value)}
-              />
+            {/* DATE & DATETIME */}
+            {(type === 'date' || type === 'datetime') && (
+              <>
+                <input
+                  type="datetime-local"
+                  className="border p-1 rounded outline-none"
+                  value={task.cells[key]?.start || ''}
+                  onChange={(e) => {
+                    const next = {
+                      ...(task.cells[key] || { end: null }),
+                      start: e.target.value,
+                    };
+                    handleChange(key, next);
+                  }}
+                />
+                {options?.allowRange && (
+                  <>
+                    <span className="mx-1">→</span>
+                    <input
+                      type="datetime-local"
+                      className="border p-1 rounded outline-none"
+                      value={task.cells[key]?.end || ''}
+                      onChange={(e) => {
+                        const next = {
+                          ...(task.cells[key] || { start: null }),
+                          end: e.target.value,
+                        };
+                        handleChange(key, next);
+                      }}
+                    />
+                  </>
+                )}
+              </>
             )}
           </div>
         ))}

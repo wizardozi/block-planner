@@ -1,83 +1,82 @@
-import { useNavigate } from 'react-router-dom';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
+import { useNavigate } from 'react-router-dom';
 
+/**
+ * One row in the sidebar tree.
+ * • Draggable and droppable share the SAME id ("sidebar-<id>").
+ * • All drag metadata lives in `data` (nodeId + type).
+ */
 export const SidebarItem = ({
   item,
   depth = 0,
   expandedMap,
   toggleExpanded,
   getItemKey,
-  onItemDrop,
   onContextMenu,
 }) => {
-  const id = `sidebar-${item.type}-${item.id}`;
-  // console.log('SidebarItem props:', item);
+  /* ---------- id & data ---------- */
+  const id = `sidebar-${item.id}`; // unique in global tree
+  const data = { nodeId: item.id, type: item.type };
 
+  /* ---------- dnd-kit ---------- */
   const {
     attributes,
     listeners,
-    setNodeRef: setDraggableRef,
+    setNodeRef: setDragRef,
     transform,
     isDragging,
-  } = useDraggable({ id });
+  } = useDraggable({ id, data });
 
-  const { isOver, setNodeRef: setDroppableRef } = useDroppable({ id });
+  const { setNodeRef: setDropRef, isOver } = useDroppable({ id, data });
 
-  const navigate = useNavigate();
+  /* merge refs */
+  const setRefs = (el) => {
+    setDragRef(el);
+    setDropRef(el);
+  };
+
+  /* ---------- UI helpers ---------- */
+  const nav = useNavigate();
   const isExpanded = expandedMap[getItemKey(item)];
+  const indentPx = depth * 16;
 
-  const handleClick = () => {
-    try {
-      if (item.type === 'project') {
-        navigate(`/project/${item.id}`);
-      } else if (item.type === 'task') {
-        navigate(`/task/${item.id}`);
-      } else if (item.type === 'page') {
-        navigate(`/page/${item.id}`);
-      }
-    } catch (err) {
-      console.error('Sidebar click crash:', err);
-    }
-  };
-  const getTitle = (item) =>
-    item.fields?.name || item.name || handleUntitled(item.type);
-
-  const handleUntitled = (type) => {
-    if (type === 'profile') return <em>Untitled Profile</em>;
-    if (type === 'project') return <em>Untitled Project</em>;
-    if (type === 'task') return <em>Untitled Task</em>;
-    if (type === 'page') return <em>Untitled Page</em>;
+  const open = () => {
+    if (item.type === 'project') nav(`/project/${item.id}`);
+    if (item.type === 'task') nav(`/task/${item.id}`);
+    if (item.type === 'page') nav(`/page/${item.id}`);
   };
 
-  // Apply transform from dnd-kit if dragging
+  /* ---------- styles ---------- */
   const style = {
     transform: transform
       ? `translate(${transform.x}px, ${transform.y}px)`
       : undefined,
     opacity: isDragging ? 0.5 : 1,
-    paddingLeft: depth * 16,
-    border: isOver ? '1px solid' : undefined,
-    borderRadius: isOver ? 4 : undefined,
+    background: isOver ? '#eef' : undefined,
+    paddingLeft: indentPx,
   };
 
+  const title = item.fields?.name || item.name || (
+    <em>{`Untitled ${
+      item.type.charAt(0).toUpperCase() + item.type.slice(1)
+    }`}</em>
+  );
+
+  /* ---------- render ---------- */
   return (
     <div className="relative">
-      {/* Item row container */}
       <div
-        ref={(el) => {
-          setDraggableRef(el);
-          setDroppableRef(el);
-        }}
+        ref={setRefs}
         {...attributes}
         {...listeners}
+        style={style}
         onContextMenu={(e) => {
           e.preventDefault();
           onContextMenu?.(e, item);
         }}
-        style={style}
-        className="relative group flex items-center text-sm   hover:bg-gray-100 dark:hover:bg-neutral-700 py-0.5 select-none"
+        className="group flex items-center text-sm select-none cursor-pointer hover:bg-gray-100 dark:hover:bg-neutral-700"
       >
-        {/* Vertical indent lines */}
+        {/* indent lines */}
         <div className="absolute inset-0 pointer-events-none">
           {Array.from({ length: depth }).map((_, i) => (
             <div
@@ -88,25 +87,23 @@ export const SidebarItem = ({
           ))}
         </div>
 
-        {/* Chevron */}
-        <span
-          className="mr-1 w-4 flex items-center justify-center"
-          onClick={(e) => {
-            if (item.children?.length > 0) {
+        {/* chevron */}
+        {item.children?.length ? (
+          <span
+            className="w-4 mr-1 flex items-center justify-center"
+            onClick={(e) => {
               e.stopPropagation();
-              toggleExpanded?.(getItemKey(item));
-            }
-          }}
-        >
-          {item.children?.length > 0 && (
+              toggleExpanded(getItemKey(item));
+            }}
+          >
             <svg
               className={`w-3 h-3 text-zinc-500 transition-transform duration-150 ${
                 isExpanded ? 'rotate-90' : ''
               }`}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
               viewBox="0 0 24 24"
+              stroke="currentColor"
+              fill="none"
+              strokeWidth="2"
             >
               <path
                 strokeLinecap="round"
@@ -114,31 +111,27 @@ export const SidebarItem = ({
                 d="M9 5l7 7-7 7"
               />
             </svg>
-          )}
-        </span>
+          </span>
+        ) : (
+          <span className="w-4 mr-1" />
+        )}
 
-        {/* Title */}
-        <span
-          onClick={handleClick}
-          className="truncate cursor-pointer min-w-0 flex-1"
-        >
-          {getTitle(item)}
+        <span onClick={open} className="truncate flex-1">
+          {title}
         </span>
       </div>
 
-      {/* Children */}
+      {/* children */}
       {isExpanded &&
-        item.children?.length > 0 &&
-        item.children.map((child) => (
+        item.children?.map((c) => (
           <SidebarItem
-            key={getItemKey(child)}
-            item={child}
+            key={getItemKey(c)}
+            item={c}
             depth={depth + 1}
             expandedMap={expandedMap}
             toggleExpanded={toggleExpanded}
             getItemKey={getItemKey}
             onContextMenu={onContextMenu}
-            onItemDrop={onItemDrop}
           />
         ))}
     </div>

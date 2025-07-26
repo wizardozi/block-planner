@@ -6,13 +6,7 @@ import { useDebouncedCallback } from 'use-debounce';
 export const PageBlock = ({ pageData }) => {
   const { updatePage, getPageById, addPage } = usePageManager();
 
-  const [page, setPage] = useState(() => {
-    if (!pageData) return null;
-    return {
-      ...pageData,
-      blocks: pageData.blocks?.length ? pageData.blocks : [getDefaultBlock()],
-    };
-  });
+  const [page, setPage] = useState();
 
   const textareaRef = useRef(null);
 

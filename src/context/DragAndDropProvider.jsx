@@ -1,176 +1,85 @@
-// DragAndDropProvider.jsx
-import {
-  DndContext,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core';
-import { useProfileManager } from '../context/ProfileContext';
-import { useProjectManager } from '../context/ProjectContext';
-import { useTaskManager } from '../context/TaskContext';
-import { usePageManager } from './PageContext';
-import {
-  createContext,
-  useContext,
-  useState,
-  useCallback,
-  useEffect,
-} from 'react';
-import { pointerWithin } from '@dnd-kit/core';
-import {
-  getDropHandler,
-  registerDropHandler,
-} from '../dnd/dropHandlerRegistry';
-import { createHandleDropInSidebar } from '../dnd/handlers/handleDropInSidebar';
-import { createHandleDropOnColumn } from '../dnd/handlers/handleDropOnColumn';
-import { createHandleDropOnCalendar } from '../dnd/handlers/createHandleDropOnCalendar';
-import { parseDragId } from '../utils/dnd';
+import { PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { createContext, useContext, useState } from 'react';
+import { useStore } from '../state/store';
 
-const DragAndDropContext = createContext();
+/* ------------------------------------------------------------------ */
+/*  Context wrapper – exposes sensors + the id of the item in flight  */
+/* ------------------------------------------------------------------ */
+
+const DndCtx = createContext(null);
+
+const getState = useStore.getState;
 
 export function DragAndDropProvider({ children }) {
+  /* dnd-kit sensors */
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 5,
-      },
-    })
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
 
-  const { getProfileById, updateProfile } = useProfileManager();
+  /* zustand helpers */
+  const moveNode = useStore((s) => s.moveNode);
+  const updateNode = useStore((s) => s.updateNode); // you might use this later
 
-  const { getProjectById, updateProject } = useProjectManager();
+  /* keep track of what’s being dragged (sidebar uses it for styling) */
+  const [activeId, setActiveId] = useState(null);
 
-  const { getTaskById, updateTask } = useTaskManager();
-
-  const { getPageById, updatePage } = usePageManager();
-
-  const [activeDragItem, setActiveDragItem] = useState(null);
-  const contextProps = {
-    getTaskById,
-    updateTask,
-    getProjectById,
-    updateProject,
-    getProfileById,
-    updateProfile,
-    getPageById,
-    updatePage,
-  };
-  useEffect(() => {
-    const sidebarHandler = createHandleDropInSidebar(contextProps);
-    registerDropHandler('sidebar', sidebarHandler);
-
-    const columnHandler = createHandleDropOnColumn(contextProps);
-    registerDropHandler('board', columnHandler);
-
-    const calendarHandler = createHandleDropOnCalendar(contextProps);
-    registerDropHandler('calendar', calendarHandler);
-  }, [
-    getTaskById,
-    updateTask,
-    getProjectById,
-    updateProject,
-    getProfileById,
-    updateProfile,
-  ]);
-
-  const handleItemDrop = useCallback(
-    (draggedItem, targetItem) => {
-      if (!draggedItem || !targetItem || draggedItem.id === targetItem.id)
-        return;
-
-      const { id: draggedId, type: draggedType } = draggedItem;
-      const { id: targetId, type: targetType } = targetItem;
-
-      // Prevent invalid nesting
-      if (
-        draggedType === 'profile' &&
-        ['profile', 'project', 'task', 'page'].includes(targetType)
-      )
-        return;
-
-      if (
-        draggedType === 'project' &&
-        ['project', 'task', 'page'].includes(targetType)
-      )
-        return;
-
-      let originalItem = null;
-
-      switch (draggedType) {
-        case 'page':
-          originalItem = getPageById(draggedId);
-          break;
-        case 'task':
-          originalItem = getTaskById(draggedId);
-          break;
-        case 'project':
-          originalItem = getProjectById(draggedId);
-          break;
-        case 'profile':
-          originalItem = getProfileById(draggedId);
-          break;
-        default:
-          return;
-      }
-    },
-    [
-      getTaskById,
-      getProjectById,
-      getProfileById,
-      updateTask,
-      updateProject,
-      updateProfile,
-      getPageById,
-      updatePage,
-    ]
-  );
-
+  /* -------- drag start / end -------- */
   const handleDragStart = (event) => {
-    setActiveDragItem(event.active);
+    setActiveId(event.active.id);
   };
+
+  const typeCanContain = (parentType, childType) => {
+    if (!parentType) return true; // root node
+    if (parentType === 'profile') return childType !== 'profile';
+    if (parentType === 'project')
+      return childType === 'task' || childType === 'page';
+    if (parentType === 'task')
+      return childType === 'task' || childType === 'page';
+    if (parentType === 'page') return true; // everything allowed in pages
+    return false;
+  };
+
   const handleDragEnd = ({ active, over }) => {
-    if (!active || !over) return;
+    if (!over) return;
 
-    const draggedItem = parseDragId(active.id);
-    const targetItem = parseDragId(over.id);
+    const src = active.id.toString();
+    const dst = over.id.toString();
 
-    // Ignore self-drop
-    if (
-      draggedItem.id === targetItem.id &&
-      draggedItem.type === targetItem.type
-    )
+    const { moveNode, updateNode } = getState(); // from Zustand
+
+    /* -------------------------------- Sidebar nesting */
+    if (src.startsWith('sidebar-node-') && dst.startsWith('sidebar-node-')) {
+      const draggedId = src.slice('sidebar-node-'.length);
+      const targetId = dst.slice('sidebar-node-'.length);
+      if (draggedId !== targetId) moveNode(draggedId, targetId, 0);
       return;
-
-    // 🧠 Route to correct handler based on target context (sidebar, board, etc.)
-    const handlerType = targetItem.context;
-    const handler = getDropHandler(handlerType);
-
-    if (handler) {
-      handler(draggedItem, targetItem);
-    } else {
-      console.warn(
-        `🚨 No drop handler registered for context: '${handlerType}'`
-      );
     }
 
-    setActiveDragItem(null);
+    /* -------------------------------- Board ➜ Column status change */
+    if (dst.startsWith('board-col-')) {
+      const taskId = src.replace(/^.*-task-/, ''); // picks board or calendar card
+      const status = dst.slice('board-col-'.length);
+      updateNode(taskId, { cells: { status } });
+      return;
+    }
+
+    /* -------------------------------- Calendar reschedule */
+    if (dst.startsWith('calendar-cell-')) {
+      const taskId = src.replace(/^.*-task-/, '');
+      const dayStr = dst.slice('calendar-cell-'.length); // YYYY-MM-DD
+      updateNode(taskId, {
+        cells: { due: { start: `${dayStr}T00:00`, end: null } },
+      });
+      return;
+    }
+
+    /* Add more target types here as needed */
   };
 
   return (
-    <DragAndDropContext.Provider value={{ activeDragItem, handleItemDrop }}>
-      <DndContext
-        sensors={sensors}
-        collisionDetection={pointerWithin}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        {children}
-      </DndContext>
-    </DragAndDropContext.Provider>
+    <DndCtx.Provider value={{ sensors, activeId }}>{children}</DndCtx.Provider>
   );
 }
 
-export function useDragAndDrop() {
-  return useContext(DragAndDropContext);
-}
+/* hook for consumers (Sidebar, Board, Calendar…) */
+export const useDragAndDrop = () => useContext(DndCtx);

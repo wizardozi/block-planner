@@ -15,49 +15,33 @@ import ProgressView from './ProgressView';
 const VIEW_KEY = (id) => `viewType-${id}`;
 
 export default function ProjectView() {
-  const { projectId } = useParams();
+  /* ---------- always‐run hooks ---------- */
   const navigate = useNavigate();
+  const { projectId } = useParams();
 
-  /** read the project, its database, and its direct children (tasks/pages) */
-  const { node: project, db, children } = useNode(projectId);
-
-  /** redirect if the URL is bad */
-  if (!project) {
-    return <div className="p-4 text-red-600">Project not found.</div>;
-  }
-
-  /** tasks in this project */
+  const { node: project, db, children } = useNode(projectId); // may be undefined on 1st render
   const tasks = children.filter((c) => c.type === 'task');
+
   const addTask = useStore((s) => s.addTask);
   const updateNode = useStore((s) => s.updateNode);
 
-  /** view-switcher state (board | list | calendar | progress) */
-  const [view, setView] = useState(() => {
-    return localStorage.getItem(VIEW_KEY(projectId)) || 'board';
-  });
-
-  /** persist view selection per project */
+  /* UI mode (board / list / calendar / progress) */
+  const [view, setView] = useState(
+    () => localStorage.getItem(VIEW_KEY(projectId)) || 'board'
+  );
   useEffect(() => {
     localStorage.setItem(VIEW_KEY(projectId), view);
   }, [view, projectId]);
 
-  /** auto-grow title textarea */
+  /* auto-grow title textarea even if title is '' at first */
   const titleRef = useRef(null);
   useEffect(() => {
     if (!titleRef.current) return;
     titleRef.current.style.height = 'auto';
     titleRef.current.style.height = `${titleRef.current.scrollHeight}px`;
-  }, [project.title]);
+  }, [project?.title]); // use optional chaining
 
-  /** helpers */
-  const handleTitle = (e) => updateNode(project.id, { title: e.target.value });
-
-  const handleAddTask = () => {
-    const id = addTask(project.id);
-    navigate(`/task/${id}`);
-  };
-
-  /** memo-ised view component */
+  /* pick the main view */
   const viewBody = useMemo(() => {
     switch (view) {
       case 'list':
@@ -70,6 +54,19 @@ export default function ProjectView() {
         return <BoardView projectTasks={tasks} />;
     }
   }, [view, tasks]);
+
+  /* ---------- render ---------- */
+  if (!project) {
+    /* Data hasn’t arrived yet; still call every hook, just show a placeholder */
+    return <div className="p-4">Loading project…</div>;
+  }
+
+  /* Once the project exists, wrap the UI in DBProvider as before */
+  const handleTitle = (e) => updateNode(project.id, { title: e.target.value });
+  const handleAddTask = () => {
+    const id = addTask(project.id);
+    navigate(`/task/${id}`);
+  };
 
   /* ---------- render ---------- */
   return (

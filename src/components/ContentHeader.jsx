@@ -1,66 +1,42 @@
-import { useContext, useEffect, useState } from 'react';
+// src/components/ContentHeader.jsx
 import { useParams } from 'react-router-dom';
-import { useTaskManager } from '../context/TaskContext';
-import { usePageManager } from '../context/PageContext';
-import { useProjectManager } from '../context/ProjectContext';
-import { useProfileManager } from '../context/ProfileContext';
+import { useStore } from '../state/store';
+import { useMemo } from 'react';
 
 export default function ContentHeader() {
+  /* ----- 1. figure out the current node id from route params ----- */
   const { id, projectId, taskId, profileId, pageId } = useParams();
-  const trueId = id || projectId || taskId || profileId || pageId;
+  const currentId = id || projectId || taskId || profileId || pageId;
 
-  const { tasks, setTasks, updateTask, addTask, deleteTask, getTaskById } =
-    useTaskManager();
+  /* ----- 2. read the whole node map from zustand ----- */
+  const nodesById = useStore((s) => s.nodesById);
 
-  const { pages, getPageById } = usePageManager();
-
-  const { projects, addProject, deleteProject, updateProject, getProjectById } =
-    useProjectManager();
-
-  const { profiles, addProfile, deleteProfile, updateProfile, getProfileById } =
-    useProfileManager();
-
-  const [breadcrumbs, setBreadcrumbs] = useState([]);
-
-  useEffect(() => {
-    const path = window.location.pathname;
-
-    let current;
-    if (path.startsWith('/task/')) {
-      current = getTaskById(trueId);
-    } else if (path.startsWith('/page/')) {
-      current = getPageById(trueId);
-    } else if (path.startsWith('/project/')) {
-      current = getProjectById(trueId);
-    } else if (path.startsWith('/profile/')) {
-      current = getProfileById(trueId);
-    }
-
-    if (!current) return;
-
+  /* ----- 3. compute breadcrumbs once whenever graph or id changes ----- */
+  const breadcrumbs = useMemo(() => {
     const trail = [];
+    let node = nodesById[currentId];
 
-    while (current) {
-      trail.unshift({ name: current.name, id: current.id });
-      if (!current.parentId) break;
-      current =
-        getTaskById(current.parentId) ||
-        getProjectById(current.parentId) ||
-        getProfileById(current.parentId);
+    while (node) {
+      // show title, or name, or fallback
+      const label = node.title || node.name || node.cells?.name || 'Untitled';
+
+      trail.unshift({ id: node.id, label });
+      if (!node.parentId) break; // reached root
+      node = nodesById[node.parentId];
     }
+    return trail;
+  }, [nodesById, currentId]);
 
-    setBreadcrumbs(trail);
-  }, [id, tasks, projects, profiles]);
-
+  /* ----- 4. render ----- */
   return (
     <div className="pb-2 text-sm min-h-8">
       {breadcrumbs.length === 0 ? (
-        <span>No breadcrumbs found</span>
+        <span>No breadcrumbs</span>
       ) : (
-        breadcrumbs.map((crumb, idx) => (
+        breadcrumbs.map((crumb, i) => (
           <span key={crumb.id}>
-            {idx > 0 && ' / '}
-            {crumb.name}
+            {i > 0 && ' / '}
+            {crumb.label}
           </span>
         ))
       )}
